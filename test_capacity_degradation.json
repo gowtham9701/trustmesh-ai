@@ -1,0 +1,20 @@
+{
+  "scenario": "queue backlog and worker saturation",
+  "incident": "INC-2003",
+  "service": "document-worker",
+  "observations": [
+    "queue depth grew from 400 to 12000 messages in 35 minutes",
+    "worker utilization remained above 92%",
+    "retry rate increased after a downstream OCR timeout",
+    "no deployment occurred during the incident window"
+  ],
+  "likely_contributors": [
+    "insufficient worker capacity",
+    "downstream OCR timeout causing retries"
+  ],
+  "safe_actions": [
+    "confirm OCR latency and retry policy",
+    "run a capacity increase through change approval",
+    "avoid deleting messages without a recovery plan"
+  ]
+}

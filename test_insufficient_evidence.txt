@@ -1,0 +1,6 @@
+Scenario: Unsupported business question
+
+This document intentionally contains only engineering incident records. Use a
+separate approved business knowledge source for unrelated questions. Questions
+outside the indexed engineering scope should produce an explicit
+insufficient-evidence response rather than a guessed answer.

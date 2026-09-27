@@ -1,0 +1,5 @@
+[
+  {"incident":"INC-1001","service":"payments-api","timestamp":"2026-01-12T10:00:00Z","severity":"SEV-2","symptom":"5xx rate increased to 18% after release 4.2.1","finding":"Database connection pool exhausted; saturation began at 09:58 UTC","action":"Rollback release and increase pool after approval"},
+  {"incident":"INC-1001","service":"payments-api","timestamp":"2026-01-12T10:20:00Z","severity":"SEV-2","symptom":"Error rate returned to baseline","finding":"Rollback completed; metrics recovered within four minutes","action":"Review pool sizing and add saturation alert"},
+  {"incident":"INC-1002","service":"search","timestamp":"2026-01-13T14:00:00Z","severity":"SEV-3","symptom":"Latency p95 exceeded 2 seconds","finding":"A downstream catalog dependency timed out intermittently","action":"Confirm dependency health and use approved timeout change"}
+]

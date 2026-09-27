@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: trustmesh-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: TRUSTMESH_PUBLIC_MODE
+        value: "true"
+      - key: APP_ENV
+        value: development
+      - key: DATABASE_PATH
+        value: /tmp/trustmesh/trustmesh.sqlite3
+      - key: VECTOR_INDEX_DIR
+        value: /tmp/trustmesh/vector-index
+      - key: MAX_UPLOAD_BYTES
+        value: "10485760"
+      - key: MAX_UPLOAD_MB
+        value: "10"
+      - key: TRUSTMESH_DEMO_PASSWORD
+        sync: false

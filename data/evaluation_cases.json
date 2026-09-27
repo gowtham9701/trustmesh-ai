@@ -1,0 +1,26 @@
+[
+  {
+    "id": "orders-db-pool",
+    "question": "What caused orders-api database connection pool exhaustion after release 7.4.0?",
+    "expected": "verified",
+    "expected_terms": ["orders-api", "database", "connection", "pool", "exhausted"],
+    "relevant_chunks": 1,
+    "top_k": 5
+  },
+  {
+    "id": "employee-menu-unsupported",
+    "question": "What is the employee lunch menu for next Tuesday?",
+    "expected": "insufficient_evidence",
+    "expected_terms": [],
+    "relevant_chunks": 0,
+    "top_k": 5
+  },
+  {
+    "id": "queue-capacity",
+    "question": "Why is the document-worker queue backlog growing?",
+    "expected": "verified",
+    "expected_terms": ["document-worker", "queue", "backlog"],
+    "relevant_chunks": 1,
+    "top_k": 5
+  }
+]

@@ -1,0 +1,8 @@
+# Optional local semantic retrieval and orchestration; MVP does not need these.
+sentence-transformers>=3.0,<4
+faiss-cpu>=1.8,<2
+langgraph>=0.2,<1
+# Optional tracing adapters:
+langfuse>=2,<3
+langsmith>=0.1,<1
+langchain-core>=0.3,<1

@@ -1,0 +1,5 @@
+{
+  "evidence": "Cache hit rate fell after expiration and database reads increased.",
+  "supported_claim": "Cache hit rate fell after expiration and database reads increased.",
+  "unsupported_claim": "The cache expiration definitively proves the network provider caused a security breach."
+}
