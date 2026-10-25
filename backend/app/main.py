@@ -8,6 +8,7 @@ import time
 from collections import defaultdict, deque
 from pathlib import Path
 from threading import Lock
+from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +23,10 @@ from .models import (
     FeedbackRequest,
     InvestigationRequest,
     InvestigationResponse,
+    SuggestedQuestionsOut,
 )
 from .providers import ProviderError
+from .question_suggestions import DEFAULT_LIMIT, MAX_LIMIT, suggest_questions
 from .retrieval import StoreRetriever, retrieval_metadata
 from .security import Principal, authentication_required, current_principal, require_role
 from .store import Store
@@ -173,6 +176,28 @@ def documents(
     principal: Principal = Depends(current_principal),
 ):
     return store.list_documents(principal.tenant_id, limit, offset)
+
+
+@app.get("/api/v1/questions/suggested", response_model=SuggestedQuestionsOut)
+def suggested_questions(
+    limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    document_id: Optional[str] = Query(default=None),
+    principal: Principal = Depends(current_principal),
+):
+    """Propose questions the caller's own indexed evidence can answer."""
+    chunks = store.get_chunks(principal.tenant_id)
+    if document_id:
+        chunks = [chunk for chunk in chunks if chunk.document_id == document_id]
+    items = suggest_questions(chunks, limit=limit)
+    audit_log("question.suggested", principal)
+    return {
+        "items": items,
+        "documents": len({chunk.document_id for chunk in chunks}),
+        "note": (
+            "Questions are derived from the indexed evidence shown as their source. "
+            "They propose what to investigate; they are not findings."
+        ),
+    }
 
 
 @app.post("/api/v1/investigate", response_model=InvestigationResponse)

@@ -30,6 +30,17 @@ Open <http://localhost:8501>. The API docs are at <http://localhost:8000/docs>.
 The default `mock/local` mode requires no credentials or model downloads.
 SQLite data is written to `data/trustmesh.sqlite3` by default.
 
+## Choosing a question
+
+The UI does not ship a fixed question. After evidence is indexed, step 2 offers
+questions generated from the documents you actually uploaded — each one names a
+service, incident, or symptom copied from the source chunk it is attributed to,
+and shows that chunk as its citation source. Pick one to load it into the question
+box, edit it, or ignore it and write your own. Generation is deterministic and
+local; a suggestion proposes what to investigate, never a finding. The same list
+is available at `GET /api/v1/questions/suggested?limit=5` (optional
+`document_id` to scope it to one upload).
+
 ## What evidence to upload
 
 UTF-8 `.md`, `.txt`, and valid `.json` files are accepted. Good inputs include
@@ -84,6 +95,7 @@ be configured outside this application.
 * `GET /api/v1/ai/metadata`
 * `POST /api/v1/ingest` — multipart document upload
 * `GET /api/v1/documents` — tenant-scoped document versions
+* `GET /api/v1/questions/suggested` — questions derived from the indexed evidence
 * `POST /api/v1/investigate` — `{ "question": "...", "top_k": 6 }`
 * `POST /api/v1/feedback`, `GET /api/v1/feedback`
 * `GET /api/v1/feedback/metrics`

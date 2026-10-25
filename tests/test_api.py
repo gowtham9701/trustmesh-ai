@@ -222,3 +222,52 @@ def test_encryption_at_rest_when_configured(tmp_path, monkeypatch):
     assert reopened.list_feedback()["items"][0]["comment"] == "secret feedback"
     assert reopened.get_approval(approval["id"], "default")["decision_comment"] == "secret decision"
     assert reopened.latest_evaluation()["report"] == "secret evaluation"
+
+
+def test_suggested_questions_endpoint(workspace, monkeypatch):
+    client, store = workspace
+    assert client.get("/api/v1/questions/suggested").json()["items"] == []
+
+    store.ingest_bytes(
+        "incident.md",
+        b"Incident INC-2001 affected `orders-api` on 2026-09-20. "
+        b"Rollback restored the baseline within five minutes.",
+        tenant_id="default",
+    )
+    response = client.get("/api/v1/questions/suggested", params={"limit": 3})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["documents"] == 1
+    assert 0 < len(body["items"]) <= 3
+    assert all(item["source_filename"] == "incident.md" for item in body["items"])
+    assert client.get("/api/v1/questions/suggested", params={"limit": 0}).status_code == 422
+    assert client.get("/api/v1/questions/suggested", params={"limit": 99}).status_code == 422
+    assert client.get(
+        "/api/v1/questions/suggested", params={"document_id": "missing"}
+    ).json()["items"] == []
+
+    suggested = body["items"][0]["question"]
+    assert client.post(
+        "/api/v1/investigate", json={"question": suggested}
+    ).json()["verification"]["status"] != "insufficient_evidence"
+
+
+def test_suggested_questions_do_not_leak_across_tenants(workspace, monkeypatch):
+    client, store = workspace
+    store.ingest_bytes(
+        "secret.md", b"Incident INC-7007 affected `billing-api` on 2026-09-20.", tenant_id="team-a"
+    )
+    assert client.get("/api/v1/questions/suggested").json()["items"] == []
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("TRUSTMESH_API_KEYS", json.dumps([
+        {"token": "a-token", "tenant_id": "team-a", "role": "analyst"},
+        {"token": "b-token", "tenant_id": "team-b", "role": "analyst"},
+    ]))
+    headers_a = {"Authorization": "Bearer a-token"}
+    headers_b = {"Authorization": "Bearer b-token"}
+    assert any(
+        "billing-api" in item["question"]
+        for item in client.get("/api/v1/questions/suggested", headers=headers_a).json()["items"]
+    )
+    assert client.get("/api/v1/questions/suggested", headers=headers_b).json()["items"] == []

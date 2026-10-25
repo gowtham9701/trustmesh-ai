@@ -73,3 +73,16 @@ class DocumentOut(BaseModel):
     chunks: int
     characters: int
     version: int = 1
+
+class SuggestedQuestion(BaseModel):
+    question: str
+    source_document_id: str
+    source_filename: str
+    source_chunk_id: str
+    signals: list[str] = []
+    score: float = Field(ge=0)
+
+class SuggestedQuestionsOut(BaseModel):
+    items: list[SuggestedQuestion]
+    documents: int
+    note: str

@@ -10,6 +10,55 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+CHUNK_MAX_CHARS = 4000
+CHUNK_TARGET_CHARS = 1200
+
+
+def _split_windows(paragraph: str) -> list[str]:
+    """Break an oversized paragraph into sentence-aligned retrieval windows.
+
+    Evidence without blank lines - pretty-printed JSON, minified logs, one long
+    prose paragraph - would otherwise become a single chunk. Claim extraction
+    works per sentence inside a chunk, so a single oversized chunk yields only
+    tiny fragments (one JSON key per line) and no answer claim can clear the
+    term-overlap threshold.
+    """
+    if len(paragraph) <= CHUNK_TARGET_CHARS:
+        return [paragraph]
+    windows: list[str] = []
+    current = ""
+    for sentence in re.split(r"(?<=[.!?])\s+|\n+", paragraph):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if len(sentence) > CHUNK_MAX_CHARS:
+            if current:
+                windows.append(current)
+                current = ""
+            windows.extend(
+                sentence[offset:offset + CHUNK_MAX_CHARS]
+                for offset in range(0, len(sentence), CHUNK_MAX_CHARS)
+            )
+            continue
+        if current and len(current) + len(sentence) + 1 > CHUNK_TARGET_CHARS:
+            windows.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}" if current else sentence
+    if current:
+        windows.append(current)
+    return windows or [paragraph]
+
+
+def _split_parts(text: str) -> list[str]:
+    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    if not paragraphs:
+        paragraphs = [text.strip()]
+    parts: list[str] = []
+    for paragraph in paragraphs:
+        parts.extend(_split_windows(paragraph))
+    return parts
+
 
 @dataclass
 class Chunk:
@@ -261,7 +310,7 @@ class Store:
             raise ValueError("Document exceeds MAX_UPLOAD_BYTES")
 
         digest = hashlib.sha256(raw).hexdigest()
-        parts = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()] or [text.strip()]
+        parts = _split_parts(text)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing_row = connection.execute(
@@ -283,7 +332,7 @@ class Store:
             ).fetchone()[0]
             doc_id = uuid.uuid4().hex[:12]
             chunks = [
-                Chunk(doc_id, filename, f"{doc_id}-{i + 1}", p[:4000], tenant_id, version)
+                Chunk(doc_id, filename, f"{doc_id}-{i + 1}", p[:CHUNK_MAX_CHARS], tenant_id, version)
                 for i, p in enumerate(parts)
             ]
             metadata = {

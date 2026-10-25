@@ -3,6 +3,7 @@ import os, requests, streamlit as st
 from auth import require_public_demo_password
 API=os.getenv('OPSPILOT_API_URL','http://localhost:8000').rstrip('/')
 API_TOKEN=os.getenv('OPSPILOT_API_TOKEN','')
+AUTH={'Authorization':f'Bearer {API_TOKEN}'} if API_TOKEN else {}
 st.set_page_config(page_title='TrustMesh AI', page_icon='🕸️', layout='wide')
 if not require_public_demo_password():
     st.stop()
@@ -10,9 +11,21 @@ st.title('🕸️ TrustMesh AI')
 st.caption('Local-first, evidence-grounded incident investigation — transparent by design.')
 
 def call(method,path,**kwargs):
-    headers=kwargs.pop('headers',{})
-    if API_TOKEN: headers['Authorization']=f'Bearer {API_TOKEN}'
+    headers=dict(kwargs.pop('headers',{}))
+    headers.update(AUTH)
     r=requests.request(method,API+path,timeout=60,headers=headers,**kwargs); r.raise_for_status(); return r.json()
+
+@st.cache_data(ttl=30,show_spinner=False)
+def suggested_questions(limit,signature):
+    del signature  # hashed into the cache key so results stay scoped to the indexed documents
+    r=requests.get(API+'/api/v1/questions/suggested',params={'limit':limit},headers=dict(AUTH),timeout=60)
+    r.raise_for_status(); return r.json()
+
+documents,api_error=[],None
+try:
+    documents=call('GET','/api/v1/documents')
+except requests.RequestException as e: api_error=str(e)
+signature=tuple((d['id'],d['version']) for d in documents)
 with st.sidebar:
     st.header('Workspace')
     try:
@@ -22,9 +35,8 @@ with st.sidebar:
     except requests.RequestException as e: st.error(f'API unavailable: {e}')
     st.info('No external model is required. Hosted demo data is temporary and may reset; findings are suggestions, not remediation.')
     st.subheader('Indexed documents')
-    try:
-        for d in call('GET','/api/v1/documents'): st.write(f"• {d['filename']} ({d['chunks']} chunks)")
-    except requests.RequestException as e: st.error(f'Unable to load documents: {e}')
+    if api_error: st.error(f'Unable to load documents: {api_error}')
+    for d in documents: st.write(f"• {d['filename']} (v{d['version']}, {d['chunks']} chunks)")
 
 st.subheader('1. Add incident evidence')
 file=st.file_uploader(
@@ -36,10 +48,27 @@ if file and st.button('Index document'):
     try: st.success(call('POST','/api/v1/ingest',files={'file':(file.name,file.getvalue(),file.type)})['filename']); st.rerun()
     except requests.HTTPError as e: st.error(e.response.text)
 st.subheader('2. Ask an investigation question')
-question=st.text_area('Question',value='What caused the payments-api incident and what should we do next?',height=90)
+try: suggestions=suggested_questions(5,signature)['items']
+except requests.RequestException: suggestions=[]
+labels=[item['question'] for item in suggestions]
+if st.session_state.get('suggested_question') not in labels: st.session_state['suggested_question']=''
+choice=st.selectbox(
+    'Suggested from your evidence',['']+labels,key='suggested_question',
+    format_func=lambda value: value or 'Select a suggestion, or write your own question below',
+)
+if choice and st.session_state.get('applied_question')!=choice:
+    st.session_state['question']=choice
+    st.session_state['applied_question']=choice
+if choice:
+    source=next((item for item in suggestions if item['question']==choice),None)
+    if source: st.caption(f"Grounded in {source['source_filename']} · {source['source_chunk_id']} · matched {', '.join(source['signals'])}")
+elif not labels: st.caption('No suggestions yet — index a document in step 1 and questions are generated from its content.')
+question=st.text_area('Question',height=90,key='question',placeholder='What changed, what broke, or what should be checked next?')
 if st.button('Investigate',type='primary'):
-    try: st.session_state.result=call('POST','/api/v1/investigate',json={'question':question})
-    except requests.HTTPError as e: st.error(e.response.text)
+    if not question.strip(): st.error('Pick a suggested question or write one before investigating.')
+    else:
+        try: st.session_state.result=call('POST','/api/v1/investigate',json={'question':question})
+        except requests.HTTPError as e: st.error(e.response.text)
 r=st.session_state.get('result')
 if r:
     st.divider(); st.subheader('Finding')

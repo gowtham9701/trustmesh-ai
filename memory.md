@@ -9,6 +9,8 @@ path requires no credentials or model downloads.
 ## Current capabilities
 
 - Ingest/version UTF-8 Markdown, text, and JSON evidence.
+- Generate investigation questions from the indexed evidence itself, with the
+  source chunk each question came from; the UI offers them as a selection.
 - Use deterministic retrieval by default; optionally use persisted FAISS,
   Sentence Transformers, and cross-encoder reranking.
 - Run typed retrieval/investigation/verification with LangGraph when available.
